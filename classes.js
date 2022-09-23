@@ -20,6 +20,7 @@ function TMGuild(o) {
   }
 }
 
+// inspired by the music player implementation of the Discord.JS devs
 class MusicSession {
   static buttons = {
     pause: { type: Button, emoji: '⏸️', customId: 'pause', label: 'pause', style: Primary },
