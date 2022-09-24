@@ -6,30 +6,30 @@
  * - tweetnacl
  */
 
-const { randomUUID } = require('crypto');
-const { inspect } = require('util');
-const { existsSync, writeFileSync } = require('fs');
-const Discord = require('discord.js');
-const Voice = require('@discordjs/voice');
-const play = require('play-dl');
-const { TMGuild, MusicSession, Track } = require('./classes');
-const { toSnowflake } = require('./utils');
-const { guild_commands, global_commands } = require('./commands');
+const { randomUUID } = require('crypto')
+const { inspect } = require('util')
+const { existsSync, writeFileSync } = require('fs')
+const Discord = require('discord.js')
+const Voice = require('@discordjs/voice')
+const play = require('play-dl')
+const { TMGuild, MusicSession, Track } = require('./classes')
+const { toSnowflake } = require('./utils')
+const { guild_commands, global_commands } = require('./commands')
 
-require('./prototypes');
+require('./prototypes')
 
-(async () => play.setToken({ soundcloud: { client_id: await play.getFreeClientID() } }))();
+;(async () => play.setToken({ soundcloud: { client_id: await play.getFreeClientID() } }))()
 
-const sessions = new Discord.Collection();
-const tmguilds = new Discord.Collection();
+const sessions = new Discord.Collection()
+const tmguilds = new Discord.Collection()
 if(existsSync('./tmguilds.json')) {
   for(const o of require('./tmguilds.json'))
-    tmguilds.set(o.guild, new TMGuild(o));
+    tmguilds.set(o.guild, new TMGuild(o))
 }
 
-const { ActionRow, Button, TextInput } = Discord.ComponentType;
-const { Success, Danger } = Discord.ButtonStyle;
-const { Short } = Discord.TextInputStyle;
+const { ActionRow, Button, TextInput } = Discord.ComponentType
+const { Success, Danger } = Discord.ButtonStyle
+const { Short } = Discord.TextInputStyle
 
 const client = new Discord.Client({
   intents: [
@@ -37,91 +37,91 @@ const client = new Discord.Client({
     'GuildVoiceStates',
     'GuildMessages'
   ]
-});
+})
 
 let owner; // hold the bot owner's User object for messaging
 
 ////////////////////////// event listeners begin //////////////////////////
 client.on('ready', async client => {
-  console.log(`Logged in as ${client.user.tag}!`);
-  ({ owner } = await client.application.fetch());
-  updateStatus();
-  await owner.clearDM();
-  await sendOwnerButtons();
-});
+  console.log(`Logged in as ${client.user.tag}!`)
+  ({ owner } = await client.application.fetch())
+  updateStatus()
+  await owner.clearDM()
+  await sendOwnerButtons()
+})
 
 client.on('interactionCreate', async interaction => { try {
   function somethingWentWrong() {
-    const msg = 'something went wrong, please try again';
-    interaction.deferReply().then(() => interaction.followUp(msg).catch(handleError));
+    const msg = 'something went wrong, please try again'
+    interaction.deferReply().then(() => interaction.followUp(msg).catch(handleError))
   }
   function iNeedPerms() {
-    const msg = 'i need the following perms: `Read Message History`, `Create Public Threads`, `Send Messages in Threads`, `Manage Threads`, `Manage Messages`, `Connect`, `Speak`';
-    interaction.deferReply().then(() => interaction.followUp(msg).catch(handleError));
+    const msg = 'i need the following perms: `Read Message History`, `Create Public Threads`, `Send Messages in Threads`, `Manage Threads`, `Manage Messages`, `Connect`, `Speak`'
+    interaction.deferReply().then(() => interaction.followUp(msg).catch(handleError))
   }
-  const { user, member, guild, guildId, channel } = interaction;
+  const { user, member, guild, guildId, channel } = interaction
 
-  let tmg;
+  let tmg
   if(interaction.inGuild()) {
-    tmg = tmguilds.ensure(guildId, () => new TMGuild({ guild: guildId }));
+    tmg = tmguilds.ensure(guildId, () => new TMGuild({ guild: guildId }))
   }
 
   if(interaction.isChatInputCommand()) {
-    const { commandName, options } = interaction;
+    const { commandName, options } = interaction
     switch(commandName) {
-      case 'ping': await interaction.reply(`\`${client.ws.ping}\``); break;
+      case 'ping': await interaction.reply(`\`${client.ws.ping}\``); break
       case 'eval': {
         if(user.id !== owner.id) { await interaction.reply('only my owner can use this command!'); break; }
-        let code = options.getString('code');
+        let code = options.getString('code')
         if(code.includes('await')) { code = `(async () => { ${code} })().catch(handleError)`; }
-        let output;
+        let output
         try { output = inspect(await eval(code), { depth: 0, showHidden: true }); }
         catch(err) { handleError(err); return; }
-        let x;
+        let x
         if(output.length <= 2000)
-          x = '```js\n'+output+'```';
+          x = '```js\n'+output+'```'
         else if(output.length > 2000 && output.length <= 4096)
-          x = { embeds: [{ description: '```js\n'+output+'```' }] };
+          x = { embeds: [{ description: '```js\n'+output+'```' }] }
         else if(output.length > 4096)
-          x = { files: [{ attachment: Buffer.from(output), name: 'output.js'}] };
-        await interaction.reply(x);
-      } break;
+          x = { files: [{ attachment: Buffer.from(output), name: 'output.js'}] }
+        await interaction.reply(x)
+      } break
       case 'start_session': {
         if(!(channel instanceof Discord.GuildChannel)) { somethingWentWrong(); break; }
-        let permissions = channel.permissionsFor(client.user.id);
+        let permissions = channel.permissionsFor(client.user.id)
         for(const x of ['ReadMessageHistory', 'CreatePublicThreads', 'SendMessagesInThreads', 'ManageThreads', 'ManageMessages']) {
           if(!permissions.has(x)) {
-            iNeedPerms();
-            return;
+            iNeedPerms()
+            return
           }
         }
         if(!(member instanceof Discord.GuildMember)) { somethingWentWrong(); break; }
-        const voiceChannel = member.voice.channel;
+        const voiceChannel = member.voice.channel
         if(!voiceChannel) { await interaction.reply(`join a voice channel first`); break; }
-        permissions = voiceChannel.permissionsFor(client.user.id);
+        permissions = voiceChannel.permissionsFor(client.user.id)
         for(const x of ['Connect', 'Speak']) {
           if(!permissions.has(x)) {
-            iNeedPerms();
-            return;
+            iNeedPerms()
+            return
           }
         }
-        let session = sessions.get(guildId);
+        let session = sessions.get(guildId)
         if(session instanceof MusicSession) { await interaction.reply(`a music player session already exists in ${session.channel}!`); break; }
 
-        const msg = await interaction.reply({ content: 'creating session...', fetchReply: true });
-        let sessionChannel;
+        const msg = await interaction.reply({ content: 'creating session...', fetchReply: true })
+        let sessionChannel
         try { sessionChannel = await msg.startThread({ name: 'music!!!!' }); }
         catch(err) {
           try { await msg.edit(`thread creation failed... \`${err}\`\ni need more perms`); }
           catch(err) { await user.send(`thread creation failed... \`${err}\`\ni need more perms`); }
-          break;
+          break
         }
 
-        const voiceConnection = Voice.joinVoiceChannel({ channelId: voiceChannel.id, guildId, adapterCreator: guild.voiceAdapterCreator });
-        sessions.set(guildId, new MusicSession(voiceConnection, sessionChannel, interaction, tmg, deleteMusicSession, handleError));
-        await msg.edit(`session created by ${user}! open the thread below to control the music player!`);
-        updateStatus();
-      } break;
+        const voiceConnection = Voice.joinVoiceChannel({ channelId: voiceChannel.id, guildId, adapterCreator: guild.voiceAdapterCreator })
+        sessions.set(guildId, new MusicSession(voiceConnection, sessionChannel, interaction, tmg, deleteMusicSession, handleError))
+        await msg.edit(`session created by ${user}! open the thread below to control the music player!`)
+        updateStatus()
+      } break
       case 'permissions': {
         function permissionName(x) {
           switch(x) {
@@ -189,7 +189,7 @@ To make changes, include an option when sending a \`/permissions\` command.`)
       } break
     }
   } else if(interaction.isButton()) {
-    const { customId, message } = interaction;
+    const { customId, message } = interaction
     const session = sessions.get(guildId)
 
     if(session instanceof MusicSession) switch(customId) {
