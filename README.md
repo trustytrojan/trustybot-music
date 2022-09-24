@@ -14,4 +14,4 @@ To make a music bot with works entirely without chat input (slash) commands
   - add tracks at index
   - reverse queue
   - move tracks to new index
-- actually implementing button permissions
+- actually implementing button-role permissions
