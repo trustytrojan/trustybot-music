@@ -4,5 +4,28 @@
     "discord.js": "^14.4.0",
     "play-dl": "^1.9.5",
     "tweetnacl": "^1.0.3"
-  }
+  },
+  "name": "trustybot-music",
+  "version": "1.0.0",
+  "description": "My unique discord bot",
+  "main": "main.js",
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/trustytrojan/trustybot-music.git"
+  },
+  "keywords": [
+    "discord",
+    "discord-bot",
+    "discord-music-bot"
+  ],
+  "author": "trustytrojan",
+  "license": "UNLICENSED",
+  "bugs": {
+    "url": "https://github.com/trustytrojan/trustybot-music/issues"
+  },
+  "homepage": "https://github.com/trustytrojan/trustybot-music#readme"
 }
