@@ -3,19 +3,5 @@
     "@discordjs/voice": "^0.11.0",
     "discord.js": "^14.4.0",
     "play-dl": "^1.9.5"
-  },
-  "type": "module",
-  "name": "trustybot-music",
-  "main": "main.js",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/trustytrojan/trustybot-music.git"
-  },
-  "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/trustytrojan/trustybot-music/issues"
-  },
-  "homepage": "https://github.com/trustytrojan/trustybot-music#readme",
-  "description": ""
+  }
 }
