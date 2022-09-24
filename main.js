@@ -23,7 +23,7 @@ require('./prototypes');
 const sessions = new Discord.Collection();
 const tmguilds = new Discord.Collection();
 if(existsSync('./tmguilds.json')) {
-  for(const o of require('../tmguilds.json'))
+  for(const o of require('./tmguilds.json'))
     tmguilds.set(o.guild, new TMGuild(o));
 }
 
