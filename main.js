@@ -44,7 +44,7 @@ let owner; // hold the bot owner's User object for messaging
 ////////////////////////// event listeners begin //////////////////////////
 client.on('ready', async client => {
   console.log(`Logged in as ${client.user.tag}!`)
-  ({ owner } = await client.application.fetch())
+  ;({ owner } = await client.application.fetch())
   updateStatus()
   await owner.clearDM()
   await sendOwnerButtons()
