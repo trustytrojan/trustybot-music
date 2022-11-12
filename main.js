@@ -339,4 +339,4 @@ function kill() {
 
 ////////////////////////// functions end //////////////////////////
 
-client.login(require('./token.json').token)
+client.login(require('./token.json'))
