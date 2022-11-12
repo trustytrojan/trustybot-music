@@ -11,7 +11,8 @@
   "main": "main.js",
   "devDependencies": {},
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "run": "node main",
+    "runbg": "(nohup node main > latest.log &)"
   },
   "repository": {
     "type": "git",
