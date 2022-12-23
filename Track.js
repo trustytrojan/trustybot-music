@@ -2,11 +2,8 @@ import {
   createAudioResource,
 } from '@discordjs/voice';
 
-import {
-  stream,
-  YouTubeVideo,
-  SoundCloudTrack
-} from 'play-dl';
+import play from 'play-dl';
+const { YouTubeVideo, SoundCloudTrack } = play;
 
 import { hours_minutes_seconds } from './music-utils';
 
@@ -55,7 +52,7 @@ export default class Track {
   }
 
   async createAudioResource() {
-    const { stream: _stream, type } = await stream(this.url);
-    return createAudioResource(_stream, { inputType: type, metadata: this });
+    const { stream, type } = await play.stream(this.url);
+    return createAudioResource(stream, { inputType: type, metadata: this });
   }
 }
