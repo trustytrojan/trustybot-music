@@ -1,11 +1,3 @@
-/**
- * I REQUIRE THE FOLLOWING NPM PACKAGES:
- * - discord.js
- * - @discordjs/voice
- * - play-dl
- * - tweetnacl
- */
-
 const { randomUUID } = require('crypto')
 const { inspect } = require('util')
 const { existsSync, writeFileSync } = require('fs')
@@ -13,8 +5,8 @@ const Discord = require('discord.js')
 const Voice = require('@discordjs/voice')
 const play = require('play-dl')
 const { TMGuild, MusicSession, Track } = require('./classes')
-const { toSnowflake } = require('./utils')
-const { guild_commands, global_commands } = require('./commands')
+const { toSnowflake } = require('./music-utils')
+const { guild_commands, global_commands } = require('./command-data')
 
 require('./prototypes')
 

@@ -1,47 +1,102 @@
+import { randomUUID } from 'crypto';
+import './prototype.js';
+
+import {
+  ComponentType,
+} from 'discord.js';
+
+const { ActionRow, TextInput, Button } = ComponentType;
+
+export const do_nothing = () => {};
+
 /**
- * Creates a Discord markdown timestamp.
- * @param {number} t Time value
- * @param {string} x Timestamp style - see all styles here: https://discord.com/developers/docs/reference#message-formatting-timestamp-styles
- * @returns {string} Discord timestamp string
+ * Typing for VSCode
+ * @typedef {import('discord.js').ButtonStyle} ButtonStyle
+ * @typedef {import('discord.js').TextInputStyle} TextInputStyle
+ * @typedef {import('discord.js').CommandInteraction} CommandInteraction
+ * @typedef {import('discord.js').ModalSubmitInteraction} ModalSubmitInteraction
+ * @typedef {import('discord.js').APIActionRowComponent<import('discord.js').APIButtonComponent>} ButtonRow
+ * @typedef {import('discord.js').APIActionRowComponent<import('discord.js').APIModalActionRowComponent>} ModalRow
+ * @typedef {import('discord.js').APIButtonComponent} Button
+ * @typedef {import('discord.js').APIButtonComponentWithCustomId} CustomIdButton
+ * @typedef {import('discord.js').APIButtonComponentWithURL} LinkButton
  */
- function timestamp(t,x) {
-  let str = ''; t = t.toString().substring(0,10);
-  for(var i = 0; i < x.length; i++) {
-    const s = `<t:${t}:${x[i]}>`;
-    if(str.length === 0) str += s;
-    else str += `\n${s}`;
+
+/**
+ * @param {Button[]} buttons
+ */
+export function button_row(...buttons) {
+  /** @type {ButtonRow} */
+  const row = { type: ActionRow, components: [] };
+  for(const button of buttons) {
+    row.components.push(button);
   }
-  return str;
+  return row;
 }
 
 /**
-   * Turns a time value `t` into a `hours:minutes:seconds` formatted time string.
-   * @param {number} s Time value in seconds
-   * @returns Formatted `h:m:s` string
-   */
-function secondsToHMS(s) {
-  if(s.toString().length > 10) s = Math.floor(s/1000);
-  const hours = Math.floor(s/3600);
-  const minutes = Math.floor(s/60);
-  let m_rem = minutes%60;
-  if(m_rem < 10) m_rem = `0${m_rem}`;
-  let s_rem = s%60;
-  if(s_rem < 10) s_rem = `0${s_rem}`
-  if(hours > 0) return `${hours}:${m_rem}:${s_rem}`;
-  return `${minutes}:${s_rem}`;
-}
-
-/**
- * Turns a Discord mention into a Discord id
- * @param {string} x Discord mention
- * @returns Discord id
+ * @param {string} custom_id
+ * @param {string} label
+ * @param {ButtonStyle} style
+ * @param {{ emoji: string, disabled: boolean }}
+ * @returns {CustomIdButton}
  */
-function toSnowflake(x) {
-  x = x.toLowerCase();
-  for(const c of ['<','@','!','#','&',':','>','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z'])
-    while(x.includes(c))
-      x = x.replace(c, '');
-  return x;
+export const button = (custom_id, label, style, { emoji, disabled }) =>
+  ({ type: Button, custom_id, label, style, emoji, disabled });
+
+/**
+ * @param {string} url
+ * @param {string} label
+ * @param {ButtonStyle} style
+ * @param {string} emoji
+ * @returns {LinkButton}
+ */
+export const link_button = (url, label, style, emoji) =>
+  ({ type: Button, url, label, style, emoji });
+
+/**
+ * @param {Error} err 
+ */
+export const format_error = (err) => `\`\`\`js\n${err.stack ?? err}\`\`\``;
+
+/**
+ * @param {CommandInteraction} interaction 
+ * @param {string} msg
+ */
+export const something_went_wrong = (interaction, msg) =>
+  interaction.replyEphemeral(`something went wrong, please try again...\n\`\`\`${msg}\`\`\``);
+
+/**
+ * @param {string} custom_id 
+ * @param {string} label 
+ * @param {TextInputStyle} style 
+ * @param {{ placeholder: string, required: boolean }} 
+ * @returns {ModalRow}
+ */
+export const modal_row = (custom_id, label, style, { placeholder, required } = {}) =>
+  ({ type: ActionRow, components: [{ type: TextInput, custom_id, label, style, placeholder, required }] });
+
+/**
+ * @param {CommandInteraction} interaction 
+ * @param {string} title 
+ * @param {number} time 
+ * @param {ModalRow[]} rows 
+ */
+export async function modal_sender(interaction, title, time, rows) {
+  const customId = randomUUID();
+  interaction.showModal({ customId, title, components: rows });
+  let modal_int;
+  try { modal_int = await interaction.awaitModalSubmit({ filter: (m) => m.customId === customId, time }); }
+  catch(err) { return; }
+  return modal_int;
 }
 
-module.exports = { timestamp, secondsToHMS, toSnowflake }
+/** 
+ * @param {ModalSubmitInteraction} modal_int
+ */
+export const extract_text = (modal_int) => modal_int.fields.fields.map((v) => v.value);
+
+/**
+ * @param {string} file 
+ */
+export const import_json = async (file) => (await import(file, { assert: { type: 'json' } })).default;
