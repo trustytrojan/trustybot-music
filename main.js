@@ -125,10 +125,8 @@ client.on('interactionCreate', async (interaction) => {
 
           if(options.data.length === 0) {
             embed.setTitle('Button restrictions');
-            embed.addFields(
-              { name: 'Button name', value: 'pause / resume\nskip\nloop\nadd to queue\nshuffle\nskip to...\nend session' },
-              { name: 'Restricted to', value: btn_rest_field_str(guild, tguild.button_restrictions) }
-            );
+            embed.addField('Button name', 'pause / resume\nskip\nloop\nadd to queue\nshuffle\nskip to...\nend session', true);
+            embed.addField('Restricted to', btn_rest_field_str(guild, tguild.button_restrictions), true);
 
             interaction.reply({ embeds: [embed] });
             return;
@@ -168,7 +166,7 @@ client.on('interactionCreate', async (interaction) => {
           if(options.data.length === 0) {
             embed.setTitle('Server settings');
             embed.addFields(
-              { name: '`embed_color`', value: `\`${tguild.embed_color}\`\nI will send most of my embeds with this color (this should be a hex color code)` }
+              { name: `\`embed_color:\` \`${tguild.embed_color}\``, value: `I will send most of my embeds with this color (this should be a hex color code)` }
             );
 
             interaction.reply({ embeds: [embed] });

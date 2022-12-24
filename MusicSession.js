@@ -4,7 +4,6 @@ import {
   ButtonStyle,
   resolveColor,
   EmbedBuilder,
-  OverwriteType
 } from 'discord.js';
 const { Primary, Secondary, Danger, Success } = ButtonStyle;
 
@@ -495,6 +494,10 @@ export default class MusicSession {
 
     // edit the original interaction reply with the end reason
     this.#start_msg.edit(reason).catch(this.#handle_error);
+
+    // unlock the channel
+    const everyone = this.#channel.guild.roles.everyone;
+    this.#channel.permissionOverwrites.create(everyone, { SendMessages: null }).catch(this.#handle_error);
 
     // delete our reference from the sessions map
     // so we can get garbage collected
