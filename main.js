@@ -61,7 +61,7 @@ client.on('ready', () => {
 client.on('interactionCreate', async (interaction) => {
   function _handleError(err) {
     client.handleError(err);
-    interaction.replyError(format_error(err)).catch(do_nothing);
+    interaction.reply(format_error(err)).catch(do_nothing);
     interaction.followUp(format_error(err)).catch(do_nothing);
   }
 
