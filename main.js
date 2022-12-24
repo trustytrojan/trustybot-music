@@ -1,7 +1,7 @@
 import trustybot from './trustybot.js';
-import TGuild from './TGuild.js';
-import MusicSession from './MusicSession.js';
-import Track from './Track.js';
+import TGuild from './classes/TGuild.js';
+import MusicSession from './classes/MusicSession.js';
+import Track from './classes/Track.js';
 
 import {
   Collection,
@@ -61,7 +61,7 @@ client.on('ready', () => {
 client.on('interactionCreate', async (interaction) => {
   function _handleError(err) {
     client.handleError(err);
-    interaction.reply(format_error(err)).catch(do_nothing);
+    interaction.replyError(format_error(err)).catch(do_nothing);
     interaction.followUp(format_error(err)).catch(do_nothing);
   }
 

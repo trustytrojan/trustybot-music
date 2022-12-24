@@ -57,14 +57,7 @@ export const link_button = (url, label, style, emoji) =>
 /**
  * @param {Error} err 
  */
-export const format_error = (err) => `\`\`\`js\n${err.stack ?? err}\`\`\``;
-
-/**
- * @param {CommandInteraction} interaction 
- * @param {string} msg
- */
-export const something_went_wrong = (interaction, msg) =>
-  interaction.replyEphemeral(`something went wrong, please try again...\n\`\`\`${msg}\`\`\``);
+export const format_error = (err) => `**this is an error**\`\`\`js\n${err.stack ?? err}\`\`\``;
 
 /**
  * @param {string} custom_id 

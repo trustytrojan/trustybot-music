@@ -1,5 +1,5 @@
 import { Collection } from 'discord.js';
-import { import_json } from './utils.js';
+import { import_json } from '../utils.js';
 import { writeFileSync } from 'fs';
 
 const file = './tguilds.json';
