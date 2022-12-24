@@ -6,9 +6,9 @@ import Track from './Track.js';
 import {
   Collection,
   EmbedBuilder,
-  TextChannel,
   ActivityType,
-  TextInputStyle
+  TextInputStyle,
+  VoiceChannel
 } from 'discord.js';
 const { Playing } = ActivityType;
 const { Short } = TextInputStyle;
@@ -17,10 +17,8 @@ import {
   joinVoiceChannel
 } from '@discordjs/voice';
 
-import {
-  YouTubePlayList, SoundCloudPlaylist, YouTubeVideo, SoundCloudTrack,
-  yt_validate, so_validate, playlist_info, video_basic_info, search, soundcloud
-} from 'play-dl';
+import play from 'play-dl';
+const { YouTubePlayList, SoundCloudPlaylist, YouTubeVideo, SoundCloudTrack } = play;
 
 import {
   import_json,
@@ -41,12 +39,12 @@ const client = new trustybot(
   {
     intents: [
       'Guilds',
-      'GuildMembers',
       'GuildVoiceStates'
     ]
   },
   {
-    on_kill: TGuild.writeToFile(tguilds)
+    on_kill: () => TGuild.writeToFile(tguilds),
+    guild_commands: (await import('./command-data.js')).guild_commands
   }
 );
 
@@ -63,52 +61,30 @@ client.on('interactionCreate', async (interaction) => {
 
   if(!interaction.inCachedGuild()) return;
   if(!interaction.isRepliable()) return;
-  const { guild, guildId, member, channel } = interaction;
+
+  const { guild, guildId, member, channel, channelId } = interaction;
+
   const { me } = guild.members;
   if(!me) { interaction.replyEphemeral('where am i???'); return; }
   const tguild = tguilds.ensure(guildId, () => new TGuild({ guild: guildId }));
   const embed = new EmbedBuilder().setColor(tguild.embed_color);
-  const session = sessions.get(guildId);
 
   try {
     if(interaction.isChatInputCommand()) {
       const { commandName } = interaction;
       switch(commandName) {
         case 'start_session': {
-          // text channel check
-          if(!(channel instanceof TextChannel)) {
-            interaction.replyEphemeral('this only works in text channels!');
+          // channel type check
+          if(!(channel instanceof VoiceChannel)) {
+            interaction.replyEphemeral('this only works in voice channels!');
             return;
           }
-
-          // check perms in text channel
-          let myPerms = channel.permissionsFor(me, true);
-          if(
-            !myPerms.has('CreatePublicThreads') &&
-            !myPerms.has('SendMessagesInThreads') &&
-            !myPerms.has('EmbedLinks') &&
-            !myPerms.has('ManageThreads') &&
-            !myPerms.has('ManageMessages')
-          ) {
-            const perms = '```Create Public Threads\nSend Messages in Threads\nEmbed Links\nManage Messages\nManage Threads```';
-            embed.setDescription(`please give me the following perms in ${channel} so i can start a session`);
-            embed.addFields('required permissions', perms);
-            interaction.reply({ embeds: [embed] });
-            return;
-          }
-
-          // voice channel check
-          const voice_channel = member.voice.channel;
-          if(!voice_channel) { interaction.reply('join a voice channel first'); return; }
 
           // check perms in voice channel
-          myPerms = voice_channel.permissionsFor(me, true);
-          if(
-            !myPerms.has('Connect') &&
-            !myPerms.has('Speak')
-          ) {
-            const perms = '```Connect\nSpeak```';
-            embed.setDescription(`please give me the following perms in ${voice_channel} so i can start a session`);
+          const myPerms = channel.permissionsFor(me, true);
+          if(!myPerms.has('Connect') && !myPerms.has('Speak')) {
+            const perms = '```Embed Links\nManage Messages\nConnect\nSpeak```';
+            embed.setDescription(`please give me the following perms in ${channel} so i can start a session`);
             embed.addFields('required permissions', perms);
             interaction.reply({ embeds: [embed] });
             return;
@@ -116,30 +92,17 @@ client.on('interactionCreate', async (interaction) => {
 
           // check for existing session
           let session = sessions.get(guildId);
-          if(session instanceof MusicSession) {
-            interaction.reply(`a music player session already exists in ${session}!`);
+          if(session) {
+            interaction.reply(`a music player session already exists in ${session.channel}!`);
             return;
           }
   
-          // create thread
-          const msg = await interaction.reply({ content: 'creating session...', fetchReply: true });
-          let session_thread;
-          try { session_thread = await msg.startThread({ name: 'music!!!!' }); }
-          catch {
-            msg.edit(`thread creation failed... i need more perms`);
-            return;
-          }
-  
-          // join voice channel
-          const vc = joinVoiceChannel({
-            channelId: voice_channel.id,
-            guildId,
-            adapterCreator: guild.voiceAdapterCreator
-          });
+          // join channel
+          const vc = joinVoiceChannel({ channelId, guildId, adapterCreator: guild.voiceAdapterCreator });
 
           // all done
-          sessions.set(guildId, new MusicSession(vc, session_thread, tguild, delete_music_session, _handleError));
-          msg.edit(`session created by ${member}! open the thread below to control the music player!`)
+          const message = interaction.reply(`session created by ${member}! use the controls below!`);
+          sessions.set(guildId, new MusicSession(vc, channel, message, tguild, delete_music_session, _handleError));
           update_status();
         } break;
         case 'button_restrictions': {
@@ -167,8 +130,8 @@ client.on('interactionCreate', async (interaction) => {
         case 'enqueue': {
           // get query from user
           const modal_int = await modal_sender(interaction, 'Add songs to the queue', 30_000, [
-            modal_row('youtube', 'youtube: search/video/playlist', Short),
-            modal_row('soundcloud', 'soundcloud: search/track/playlist', Short)
+            modal_row('youtube', 'youtube: search/video/playlist', Short, { required: false, placeholder: 'search or paste a link' }),
+            modal_row('soundcloud', 'soundcloud: search/track/playlist', Short, { required: false, placeholder: 'search or paste a link' })
           ]);
           if(!modal_int) {
             interaction.followUp(`${member} you took too long to submit`);
@@ -180,19 +143,19 @@ client.on('interactionCreate', async (interaction) => {
           let playlist, track;
           if(youtube) {
             const query = youtube;
-            const type = yt_validate(query);
+            const type = play.yt_validate(query);
             switch(type) {
-              case 'playlist': playlist = await playlist_info(query, { incomplete: true }); break;
-              case 'video': track = (await video_basic_info(query)).video_details; break;
-              case 'search': ([track] = await search(query, { source: { youtube: 'video' }, limit: 1 }));
+              case 'playlist': playlist = await play.playlist_info(query, { incomplete: true }); break;
+              case 'video': track = (await play.video_basic_info(query)).video_details; break;
+              case 'search': ([track] = await play.search(query, { source: { youtube: 'video' }, limit: 1 }));
             }
           } else if(soundcloud) {
             const query = soundcloud;
-            const type = await so_validate(query);
+            const type = await play.so_validate(query);
             switch(type) {
-              case 'playlist': playlist = await soundcloud(query); break;
-              case 'track': track = await soundcloud(query); break;
-              case 'search': ([track] = await search(query, { source: { soundcloud: 'tracks' }, limit: 1 }));
+              case 'playlist': playlist = await play.soundcloud(query); break;
+              case 'track': track = await play.soundcloud(query); break;
+              case 'search': ([track] = await play.search(query, { source: { soundcloud: 'tracks' }, limit: 1 }));
             }
           }
 
@@ -205,12 +168,12 @@ client.on('interactionCreate', async (interaction) => {
           else if(track instanceof YouTubeVideo || track instanceof SoundCloudTrack)
             to_be_queued = new Track(track, member);
           else {
-            await modal_int.replyEphemeral(`i couldn't find the requested video/track!`);
+            modal_int.replyEphemeral(`i couldn't find the requested video/track!`);
             return;
           }
 
           session.enqueue(to_be_queued, member);
-          await modal_int.replyEphemeral('success!');
+          modal_int.replyEphemeral('success!');
         } break;
         case 'pause': session.pause(interaction); break;
         case 'unpause': session.unpause(interaction); break;
@@ -234,6 +197,14 @@ client.on('interactionCreate', async (interaction) => {
       }
     }
   } catch(err) { _handleError(err); }
+});
+
+client.on('messageCreate', async (message) => {
+  const { guildId, channelId } = message;
+
+  if(channelId === sessions.get(guildId)?.channel.id) {
+    message.delete().catch(do_nothing);
+  }
 });
 
 /**

@@ -41,7 +41,7 @@ export function button_row(...buttons) {
  * @param {{ emoji: string, disabled: boolean }}
  * @returns {CustomIdButton}
  */
-export const button = (custom_id, label, style, { emoji, disabled }) =>
+export const button = (custom_id, label, style, { emoji, disabled } = {}) =>
   ({ type: Button, custom_id, label, style, emoji, disabled });
 
 /**

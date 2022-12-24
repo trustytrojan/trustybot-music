@@ -82,12 +82,13 @@ export default class trustybot extends Client {
       switch(customId) {
         case 'kill': this.kill();
         case 'guildcmds': {
+          await interaction.deferReply();
           const total = this.guilds.cache.size;
           let success = total;
           for(const { commands } of this.guilds.cache.values())
             try { await commands.set(this.guild_commands); }
             catch(err) { --success; }
-          interaction.replyEphemeral(`set guild commands for ${success} of ${total} guilds!`);
+          interaction.followUp(`set guild commands for ${success} of ${total} guilds!`);
         } break;
         case 'globalcmds': {
           try { await this.application.commands.set(this.global_commands); }

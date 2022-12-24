@@ -1,0 +1,14 @@
+[
+  {
+    "guild": "1051345080184754226",
+    "embed_color": null,
+    "button_restrictions": {
+      "end_session": null,
+      "pause_resume": null,
+      "toggle_loop": null,
+      "skip": null,
+      "add_to_queue": null,
+      "shuffle": null
+    }
+  }
+]

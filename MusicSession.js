@@ -1,7 +1,10 @@
+import { randomInt } from 'crypto';
+
 import {
   ButtonStyle,
   resolveColor,
-  EmbedBuilder
+  EmbedBuilder,
+  OverwriteType
 } from 'discord.js';
 const { Primary, Secondary, Danger, Success } = ButtonStyle;
 
@@ -20,12 +23,13 @@ import {
 } from './utils.js';
 
 import Track from './Track.js';
+import './prototype.js';
 
 /**
  * Typing for VSCode
  * @typedef {import('@discordjs/voice').VoiceConnection} VoiceConnection
  * @typedef {import('@discordjs/voice').AudioPlayer} AudioPlayer
- * @typedef {import('discord.js').ThreadChannel} ThreadChannel
+ * @typedef {import('discord.js').VoiceChannel} VoiceChannel
  * @typedef {import('discord.js').ButtonInteraction} ButtonInteraction
  * @typedef {import('discord.js').GuildMember} GuildMember
  * @typedef {import('discord.js').APIEmbed} APIEmbed
@@ -36,26 +40,51 @@ import Track from './Track.js';
  */
 
 const buttons = Object.freeze({
-  pause: button('pause', 'pause', Primary, { emoji: '⏸️' }),
-  pause_disabled: button('pause', 'pause', Primary, { emoji: '⏸️', disabled: true }),
-  unpause: button('unpause', 'resume', Primary, { emoji: '▶️' }),
-  unpause_disabled: button('unpause', 'resume', Primary, { emoji: '▶️', disabled: true }),
-  skip: button('skip', 'skip', Secondary, { emoji: '⏭️' }),
-  skip_disabled: button('skip', 'skip', Secondary, { emoji: '⏭️', disabled: true }),
-  loop_off: button('loop', 'loop', Secondary, { emoji: '🔂' }),
-  loop_off_disabled: button('loop', 'loop', Secondary, { emoji: '🔂', disabled: true }),
-  loop_on: button('loop', 'loop', Success, { emoji: '🔂' }),
-  enqueue: button('enqueue', 'add to queue', Success, { emoji: '➕' }),
-  shuffle: button('shuffle', 'shuffle', Primary, { emoji: '🔀' }),
-  shuffle_disabled: button('shuffle', 'shuffle', Primary, { emoji: '🔀', disabled: true }),
-  skip_to: button('skip_to', 'skip to...', Secondary, { emoji: '⏭️' }),
-  skip_to_disabled: button('skip_to', 'skip to...', Secondary, { emoji: '⏭️', disabled: true }),
-  end_session: button('end_session', 'end session', Danger)
+  pause:
+    Object.freeze(button('pause', 'pause', Primary, { emoji: '⏸️' })),
+  pause_disabled:
+    Object.freeze(button('pause', 'pause', Primary, { emoji: '⏸️', disabled: true })),
+  unpause:
+    Object.freeze(button('unpause', 'resume', Primary, { emoji: '▶️' })),
+  unpause_disabled:
+    Object.freeze(button('unpause', 'resume', Primary, { emoji: '▶️', disabled: true })),
+  skip:
+    Object.freeze(button('skip', 'skip', Secondary, { emoji: '⏭️' })),
+  skip_disabled:
+    Object.freeze(button('skip', 'skip', Secondary, { emoji: '⏭️', disabled: true })),
+  loop_off:
+    Object.freeze(button('loop', 'loop', Secondary, { emoji: '🔂' })),
+  loop_off_disabled:
+    Object.freeze(button('loop', 'loop', Secondary, { emoji: '🔂', disabled: true })),
+  loop_on:
+    Object.freeze(button('loop', 'loop', Success, { emoji: '🔂' })),
+  enqueue:
+    Object.freeze(button('enqueue', 'add to queue', Success, { emoji: '➕' })),
+  shuffle:
+    Object.freeze(button('shuffle', 'shuffle', Primary, { emoji: '🔀' })),
+  shuffle_disabled:
+    Object.freeze(button('shuffle', 'shuffle', Primary, { emoji: '🔀', disabled: true })),
+  skip_to:
+    Object.freeze(button('skip_to', 'skip to...', Secondary, { emoji: '⏭️' })),
+  skip_to_disabled:
+    Object.freeze(button('skip_to', 'skip to...', Secondary, { emoji: '⏭️', disabled: true })),
+  end:
+    Object.freeze(button('end', 'end session', Danger))
 });
 
 const action_rows = Object.freeze({
-  disabled_mp: button_row(buttons.pause_disabled, buttons.skip_disabled, buttons.loop_off_disabled),
-  session_log: button_row(buttons.end_session)
+  disabled_mp:
+    Object.freeze(button_row(buttons.pause_disabled, buttons.skip_disabled, buttons.loop_off_disabled)),
+  mp_playing_loop_on:
+    Object.freeze(button_row(buttons.pause, buttons.skip, buttons.loop_on)),
+  mp_playing_loop_off:
+    Object.freeze(button_row(buttons.pause, buttons.skip, buttons.loop_off)),
+  mp_paused_loop_on:
+    Object.freeze(button_row(buttons.unpause, buttons.skip, buttons.loop_on)),
+  mp_paused_loop_off:
+    Object.freeze(button_row(buttons.unpause, buttons.skip, buttons.loop_off)),
+  session_log:
+    Object.freeze(button_row(buttons.end))
 });
 
 export default class MusicSession {
@@ -79,23 +108,32 @@ export default class MusicSession {
   // required from constructor, immediately available
   /** @type {AudioPlayer} */ #audio_player;
   /** @type {VoiceConnection} */ #voice_connection;
-  /** @type {ThreadChannel} */ #thread;
+  /** @type {VoiceChannel} */ #channel;
+  /** @type {Message} */ #start_msg;
   /** @type {TGuild} */ #tguild;
   /** @type {(id: string) => any} */ #delete_session;
   /** @type {(err: Error) => any} */ #handle_error;
 
   /**
    * @param {VoiceConnection} vc
-   * @param {ThreadChannel} thread
+   * @param {VoiceChannel} channel
+   * @param {Message} start_msg
    * @param {TGuild} tguild
    * @param {(id: string) => any} delete_session
    * @param {(err: Error) => any} handle_error
    */
-  constructor(vc, thread, tguild, delete_session, handle_error) {
-    this.#thread = thread;
+  constructor(vc, channel, start_msg, tguild, delete_session, handle_error) {
+    this.#channel = channel;
+    this.#start_msg = start_msg;
     this.#tguild = tguild;
     this.#delete_session = delete_session;
     this.#handle_error = handle_error;
+
+    // lock down channel so only i can send messages
+    const everyone = this.#channel.guild.roles.everyone;
+    if(this.#channel.permissionsFor(everyone).has('SendMessages')) {
+      this.#channel.permissionOverwrites.create(everyone, { SendMessages: false });
+    }
 
     this.#voice_connection = vc.on('stateChange', async (_, { status }) => {
       this.#button_lock = true;
@@ -119,11 +157,12 @@ export default class MusicSession {
       this.#button_lock = false;
     });
 
-    // must be fixed
     this.#audio_player = createAudioPlayer().on('stateChange', async (old_state, new_state) => {
       this.#button_lock = true;
       switch(new_state.status) {
         case Idle: {
+          this.#start_idle_timeout();
+
           if(this.#loop) {
             /** @type {Track} */
             const loop_track = old_state.resource.metadata;
@@ -175,17 +214,17 @@ export default class MusicSession {
 
     // create and store messages
     (async () => {
-      this.#log_msg = await this.#thread.send({
+      this.#log_msg = await this.#channel.send({
         embeds: [this.#log_embed],
         components: [action_rows.session_log]
       }).catch(this.#handle_error);
 
-      this.#queue_msg = await this.#thread.send({
+      this.#queue_msg = await this.#channel.send({
         embeds: [this.#queue_embed],
         components: [this.#queue_row]
       }).catch(this.#handle_error);
 
-      this.#music_player = await this.#thread.send({
+      this.#music_player = await this.#channel.send({
         embeds: [this.#mp_idle_embed],
         components: [action_rows.disabled_mp]
       }).catch(this.#handle_error);
@@ -194,17 +233,18 @@ export default class MusicSession {
     this.#voice_connection.subscribe(this.#audio_player);
   }
 
-  // so that interactions can be blocked when this is true
   get button_lock() {
     return this.#button_lock;
   }
 
+  get channel() {
+    return this.#channel;
+  }
+
   get #mp_row() {
-    const { loop_on, loop_off, resume, pause, skip } = buttons;
-    const loop_btn = this.loop ? loop_on : loop_off;
-    switch(this.#audio_player.state) {
-      case Playing: return button_row(pause, skip, loop_btn);
-      case Paused: return button_row(resume, skip, loop_btn);
+    switch(this.#audio_player.state.status) {
+      case Playing: return this.#loop ? action_rows.mp_playing_loop_on : action_rows.mp_playing_loop_off;
+      case Paused: return this.#loop ? action_rows.mp_paused_loop_on : action_rows.mp_paused_loop_off;
     }
   }
 
@@ -261,7 +301,7 @@ export default class MusicSession {
   /** @type {APIEmbed} */
   get #mp_idle_embed() {
     return {
-      author: { name: 'Idle', iconURL: this.#thread.guild.iconURL() },
+      author: { name: 'Idle', iconURL: this.#channel.guild.iconURL() },
       title: 'Music player',
       description: 'no tracks are playing!\nadd songs to the queue to start playing music.'
     };
@@ -274,7 +314,7 @@ export default class MusicSession {
 
     return {
       color: resolveColor(this.#tguild.embed_color),
-      author: { name: 'Playing', iconURL: this.#thread.guild.iconURL() },
+      author: { name: 'Playing', iconURL: this.#channel.guild.iconURL() },
       title: 'Music player',
       fields: [
         { name: 'Song & artist', value: `**${hyperlink}**\n${artist}`, inline: true },
@@ -425,30 +465,40 @@ export default class MusicSession {
 
     interaction.update({ embeds: [embed.data], components: [this.#mp_row] }).catch(this.#handle_error);
 
-    this.log(`${member} ${str}`);
+    this.#log(`${member} ${str}`);
   }
 
   /**
    * @param {ButtonInteraction} interaction 
    */
   shuffle(interaction) {
-    for(let i = this.#queue.length-1; i >= 0; i--) {
-      const j = Math.floor(i * Math.random());
-      [this.queue[i], this.queue[j]] = [this.queue[j], this.queue[i]];
+    console.log(this.#queue);
+    for(let i = this.#queue.length-1; i > 0; --i) {
+      this.#queue.swap(i, randomInt(i+1));
     }
-
+    console.log(this.#queue);
     interaction.update({ embeds: [this.#queue_embed] }).catch(this.#handle_error);
-    this.log(`${interaction.member} shuffled the queue`);
+    this.#log(`${interaction.member} shuffled the queue`);
   }
 
   /**
    * @param {string} reason 
    */
   end(reason) {
+    // leave the voice channel
     this.#voice_connection.destroy();
-    this.#thread.delete().catch(this.#handle_error);
-    this.#thread.parent.edit(this.#thread.id, reason).catch(this.#handle_error);
-    this.#delete_session(this.#thread.guildId);
+
+    // delete the messages
+    this.#music_player.delete().catch(this.#handle_error);
+    this.#log_msg.delete().catch(this.#handle_error);
+    this.#queue_msg.delete().catch(this.#handle_error);
+
+    // edit the original interaction reply with the end reason
+    this.#start_msg.edit(reason).catch(this.#handle_error);
+
+    // delete our reference from the sessions map
+    // so we can get garbage collected
+    this.#delete_session(this.#channel.guildId);
   }
 
   /**
