@@ -1,23 +1,29 @@
-// import {
-//   ApplicationCommandOptionType,
-// } from 'discord.js';
+import {
+  ApplicationCommandOptionType,
+} from 'discord.js';
 
-//const { String } = ApplicationCommandOptionType;
+const { String, Role } = ApplicationCommandOptionType;
 
 /**
  * Typing for VSCode
  * @typedef {import('discord.js').APIApplicationCommand} Command
  */
 
+const restriction_desc = 'if selected, only members with this role can press this button!';
+
 /** @type {Command[]} */
 export const guild_commands = [
   { name: 'start_session', description: 'start a music session' },
-  // { name: 'permissions', description: 'restrict usage of certain buttons to members with the roles you specify', options: [
-  //   { name: 'end_session', type: String, description: 'separate role mentions by space' },
-  //   { name: 'pause_or_resume', type: String, description: 'separate role mentions by space' },
-  //   { name: 'toggle_loop', type: String, description: 'separate role mentions by space' },
-  //   { name: 'skip', type: String, description: 'separate role mentions by space' },
-  //   { name: 'add_to_queue', type: String, description: 'separate role mentions by space' },
-  //   { name: 'shuffle', type: String, description: 'separate role mentions by space' }
-  // ] }
+  { name: 'button_restrictions', description: 'restrict usage of buttons to members with specified roles', options: [
+    { name: 'pause_or_resume', type: Role, description: restriction_desc },
+    { name: 'skip', type: Role, description: restriction_desc },
+    { name: 'loop', type: Role, description: restriction_desc },
+    { name: 'add_to_queue', type: Role, description: restriction_desc },
+    { name: 'shuffle', type: Role, description: restriction_desc },
+    { name: 'skip_to', type: Role, description: restriction_desc },
+    { name: 'end_session', type: Role, description: restriction_desc },
+  ] },
+  { name: 'server_settings', description: 'change server settings', options: [
+    { name: 'embed_color', type: String, description: 'set the default color of my embeds (hex color code)' }
+  ] }
 ];

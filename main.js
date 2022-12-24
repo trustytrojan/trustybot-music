@@ -8,7 +8,8 @@ import {
   EmbedBuilder,
   ActivityType,
   TextInputStyle,
-  VoiceChannel
+  VoiceChannel,
+  resolveColor
 } from 'discord.js';
 const { Playing } = ActivityType;
 const { Short } = TextInputStyle;
@@ -21,14 +22,18 @@ import play from 'play-dl';
 const { YouTubePlayList, SoundCloudPlaylist, YouTubeVideo, SoundCloudTrack } = play;
 
 import {
-  import_json,
-  something_went_wrong,
   modal_row,
   modal_sender,
   format_error,
   do_nothing,
   extract_text
 } from './utils.js';
+import { btn_readable_name, btn_rest_field_str } from './music-utils.js';
+
+/**
+ * Typing for VSCode
+ * @typedef {import('./TGuild.js').ButtonRestrictions} ButtonRestrictions
+ */
 
 const tguilds = await TGuild.readFromFile();
 
@@ -39,6 +44,7 @@ const client = new trustybot(
   {
     intents: [
       'Guilds',
+      'GuildMessages',
       'GuildVoiceStates'
     ]
   },
@@ -71,7 +77,7 @@ client.on('interactionCreate', async (interaction) => {
 
   try {
     if(interaction.isChatInputCommand()) {
-      const { commandName } = interaction;
+      const { commandName, options } = interaction;
       switch(commandName) {
         case 'start_session': {
           // channel type check
@@ -83,7 +89,7 @@ client.on('interactionCreate', async (interaction) => {
           // check perms in voice channel
           const myPerms = channel.permissionsFor(me, true);
           if(!myPerms.has('Connect') && !myPerms.has('Speak')) {
-            const perms = '```Embed Links\nManage Messages\nConnect\nSpeak```';
+            const perms = '```Manage Channel\nEmbed Links\nManage Messages\nConnect\nSpeak```';
             embed.setDescription(`please give me the following perms in ${channel} so i can start a session`);
             embed.addFields('required permissions', perms);
             interaction.reply({ embeds: [embed] });
@@ -101,15 +107,87 @@ client.on('interactionCreate', async (interaction) => {
           const vc = joinVoiceChannel({ channelId, guildId, adapterCreator: guild.voiceAdapterCreator });
 
           // all done
-          const message = interaction.reply(`session created by ${member}! use the controls below!`);
+          const message = await interaction.reply({
+            content: `session created by ${member}! use the controls below!`,
+            fetchReply: true
+          });
           sessions.set(guildId, new MusicSession(vc, channel, message, tguild, delete_music_session, _handleError));
           update_status();
         } break;
+
         case 'button_restrictions': {
+          if(!member.permissions.has('ManageGuild', true)) {
+            interaction.replyEphemeral('you need `Manage Server` to change button restrictions');
+            break;
+          }
 
+          embed.setAuthor({ name: guild.name, iconURL: guild.iconURL() });
+
+          if(options.data.length === 0) {
+            embed.setTitle('Button restrictions');
+            embed.addFields(
+              { name: 'Button name', value: 'pause / resume\nskip\nloop\nadd to queue\nshuffle\nskip to...\nend session' },
+              { name: 'Restricted to', value: btn_rest_field_str(guild, tguild.button_restrictions) }
+            );
+
+            interaction.reply({ embeds: [embed] });
+            return;
+          }
+
+          embed.setTitle('Changing button restrictions');
+
+          for(const { name, value } of options.data) {
+            /** @param {keyof ButtonRestrictions} x */
+            function role_setting(x) {
+              tguild.button_restrictions[x] = value;
+              embed.addField(btn_readable_name[x], `successfully set to <@&${value}>`);
+            }
+
+            switch(name) {
+              case 'pause_or_resume': role_setting('pause_resume'); break;
+              case 'skip': role_setting('skip'); break;
+              case 'loop': role_setting('loop'); break;
+              case 'add_to_queue': role_setting('enqueue'); break;
+              case 'shuffle': role_setting('shuffle'); break;
+              case 'skip_to': role_setting('skip_to'); break;
+              case 'end_session': role_setting('end');
+            }
+          }
+
+          interaction.reply({ embeds: [embed] });
         } break;
-        case 'server_settings': {
 
+        case 'server_settings': {
+          if(!member.permissions.has('ManageGuild', true)) {
+            interaction.replyEphemeral('you need `Manage Server` to change settings');
+            break;
+          }
+
+          embed.setAuthor({ name: guild.name, iconURL: guild.iconURL() });
+
+          if(options.data.length === 0) {
+            embed.setTitle('Server settings');
+            embed.addFields(
+              { name: '`embed_color`', value: `\`${tguild.embed_color}\`\nI will send most of my embeds with this color (this should be a hex color code)` }
+            );
+
+            interaction.reply({ embeds: [embed] });
+            return;
+          }
+
+          embed.setTitle('Changing server settings');
+
+          for(const { name, value } of options.data) {
+            switch(name) {
+              case 'embed_color': {
+                try { resolveColor(value); }
+                catch { embed.addField('`embed_color`', 'invalid hex color code provided!'); break; }
+                embed.addField('`embed_color`', `successfully set to \`${tguild.embed_color = value}\``);
+              } break;
+            }
+          }
+
+          interaction.reply({ embeds: [embed] });
         } break;
       }
     }
@@ -129,7 +207,7 @@ client.on('interactionCreate', async (interaction) => {
       switch(customId) {
         case 'enqueue': {
           // get query from user
-          const modal_int = await modal_sender(interaction, 'Add songs to the queue', 30_000, [
+          const modal_int = await modal_sender(interaction, 'Add songs to the queue', 120_000, [
             modal_row('youtube', 'youtube: search/video/playlist', Short, { required: false, placeholder: 'search or paste a link' }),
             modal_row('soundcloud', 'soundcloud: search/track/playlist', Short, { required: false, placeholder: 'search or paste a link' })
           ]);
@@ -200,9 +278,12 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.on('messageCreate', async (message) => {
-  const { guildId, channelId } = message;
+  const { guildId, channelId, author } = message;
 
-  if(channelId === sessions.get(guildId)?.channel.id) {
+  if(
+    channelId === sessions.get(guildId)?.channel.id &&
+    author.id !== client.user.id
+  ) {
     message.delete().catch(do_nothing);
   }
 });

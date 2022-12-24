@@ -8,12 +8,13 @@ const file = './tguilds.json';
  * An object representing which roles are allowed to press the 
  * specified buttons. If null, everyone can press the button.
  * @typedef {object} ButtonRestrictions
- * @prop {?string} end_session
  * @prop {?string} pause_resume
- * @prop {?string} loop
  * @prop {?string} skip
+ * @prop {?string} loop
  * @prop {?string} enqueue
  * @prop {?string} shuffle
+ * @prop {?string} skip_to
+ * @prop {?string} end
  */
 
 /**
@@ -49,14 +50,15 @@ export default class TGuild {
    */
   constructor(tg) {
     this.guild = tg.guild;
-    this.embed_color = tg.embed_color ?? null;
+    this.embed_color = tg.embed_color ?? 'ff00ff';
     this.button_restrictions = tg.button_restrictions ?? {
-      end_session: null,
       pause_resume: null,
-      toggle_loop: null,
       skip: null,
-      add_to_queue: null,
-      shuffle: null
-    }
+      loop: null,
+      enqueue: null,
+      shuffle: null,
+      skip_to: null,
+      end: null
+    };
   }
 }
