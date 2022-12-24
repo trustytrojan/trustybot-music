@@ -20,6 +20,7 @@ import {
 
 import play from 'play-dl';
 const { YouTubePlayList, SoundCloudPlaylist, YouTubeVideo, SoundCloudTrack } = play;
+play.setToken({ soundcloud: await play.getFreeClientID() });
 
 import {
   modal_row,
@@ -44,7 +45,6 @@ const client = new trustybot(
   {
     intents: [
       'Guilds',
-      'GuildMessages',
       'GuildVoiceStates'
     ]
   },
@@ -273,17 +273,6 @@ client.on('interactionCreate', async (interaction) => {
       }
     }
   } catch(err) { _handleError(err); }
-});
-
-client.on('messageCreate', async (message) => {
-  const { guildId, channelId, author } = message;
-
-  if(
-    channelId === sessions.get(guildId)?.channel.id &&
-    author.id !== client.user.id
-  ) {
-    message.delete().catch(do_nothing);
-  }
 });
 
 /**

@@ -146,7 +146,6 @@ export default class MusicSession {
         this.#ready_lock = true;
         try { await entersState(this.#voice_connection, Ready, 20_000) }
         catch {
-          this.#handle_error(new Error(`voice connection took too long to get ready!`));
           this.end(`i couldn't connect to the voice channel due to an internal error...`);
           return;
         }
