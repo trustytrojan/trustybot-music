@@ -19,10 +19,10 @@ const { Disconnected, Connecting, Signalling, Destroyed, Ready } = VoiceConnecti
 import {
   button,
   button_row
-} from './utils.js';
+} from '../utils.js';
 
 import Track from './Track.js';
-import './prototype.js';
+import '../prototype.js';
 
 /**
  * Typing for VSCode
