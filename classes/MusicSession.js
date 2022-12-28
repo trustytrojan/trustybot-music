@@ -320,6 +320,8 @@ export default class MusicSession {
     const { requestor } = this.#audio_player.state.resource.metadata;
     let text = `Requested by ${requestor.displayName}`;
     if(this.#loop) text += ` | Loop Count: ${this.#loop_count}`;
+    console.log(requestor);
+    console.log(requestor.displayAvatarURL());
     return { text, icon_url: requestor.displayAvatarURL() };
   }
 

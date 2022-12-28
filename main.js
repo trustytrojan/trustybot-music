@@ -43,6 +43,8 @@ const client = new trustybot(
   }
 );
 
+client.on('kill', () => TGuild.writeToFile(tguilds));
+
 client.on('ready', () => {
   update_status();
 });
@@ -103,7 +105,7 @@ client.on('interactionCreate', async (interaction) => {
 
           // all done
           const message = await interaction.reply({
-            content: `session created by ${member}! use the controls below!`,
+            content: `session created by ${member}! open the chat in ${channel} to play music!`,
             fetchReply: true
           });
           sessions.set(guildId, new MusicSession(vc, channel, message, tguild, delete_music_session, handle_error));
