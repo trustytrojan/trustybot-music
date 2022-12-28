@@ -92,7 +92,7 @@ client.on('interactionCreate', async (interaction) => {
           // check for existing session
           let session = sessions.get(guildId);
           if(session) {
-            interaction.reply(`a music player session already exists in ${session.channel}!`);
+            interaction.reply(`a music player session already exists in ${session.thread}!`);
             return;
           }
   
@@ -103,12 +103,15 @@ client.on('interactionCreate', async (interaction) => {
             adapterCreator: guild.voiceAdapterCreator
           });
 
+          // create thread for controls
+          const thread = await message.startThread({ name: 'music!!!!' });
+
           // all done
           const message = await interaction.reply({
-            content: `session created by ${member}! open the chat in ${channel} to play music!`,
+            content: `session created by ${member}! open the thread below to play music!`,
             fetchReply: true
           });
-          sessions.set(guildId, new MusicSession(vc, channel, message, tguild, delete_music_session, handle_error));
+          sessions.set(guildId, new MusicSession(vc, thread, message, tguild, delete_music_session, handle_error));
           update_status();
         } break;
 
@@ -199,8 +202,12 @@ client.on('interactionCreate', async (interaction) => {
         return;
       }
 
+      const no_press = () => interaction.replyEphemeral('you are not allowed to press this button!!');
+
       switch(customId) {
         case 'enqueue': {
+          if(!member.roles.resolve(tguild.button_restrictions.enqueue)) { no_press(); return; }
+
           // get query from user
           const [modal_int, text] = await Modal.send_and_receive(interaction, 'Add songs to the queue', 120_000, [
             Modal.row.short('youtube', 'youtube: search/video/playlist', { r: false, p: 'search or paste a link' }),
@@ -248,12 +255,28 @@ client.on('interactionCreate', async (interaction) => {
           session.enqueue(to_be_queued, member);
           modal_int.replyEphemeral('success!');
         } break;
-        case 'pause': session.pause(interaction); break;
-        case 'unpause': session.unpause(interaction); break;
-        case 'skip': session.skip(interaction); break;
-        case 'loop': session.toggle_loop(interaction); break;
-        case 'shuffle': session.shuffle(interaction); break;
+        case 'pause': {
+          if(!member.roles.resolve(tguild.button_restrictions.pause_resume)) { no_press(); return; }
+          session.pause(interaction);
+        } break;
+        case 'unpause': {
+          if(!member.roles.resolve(tguild.button_restrictions.pause_resume)) { no_press(); return; }
+          session.unpause(interaction);
+        } break;
+        case 'skip': {
+          if(!member.roles.resolve(tguild.button_restrictions.skip)) { no_press(); return; }
+          session.skip(interaction);
+        } break;
+        case 'loop': {
+          if(!member.roles.resolve(tguild.button_restrictions.loop)) { no_press(); return; }
+          session.toggle_loop(interaction);
+        } break;
+        case 'shuffle': {
+          if(!member.roles.resolve(tguild.button_restrictions.shuffle)) { no_press(); return; }
+          session.shuffle(interaction);
+        } break;
         case 'skip_to': {
+          if(!member.roles.resolve(tguild.button_restrictions.skip_to)) { no_press(); return; }
           const [modal_int, text] = await Modal.send_and_receive(interaction, 'Skip to track number...', 30_000, [
             Modal.row.short('skip_to', 'track number', { r: true })
           ]);
@@ -266,7 +289,10 @@ client.on('interactionCreate', async (interaction) => {
           session.skip_to(track_num-1, member);
           modal_int.replyEphemeral('success!');
         } break;
-        case 'end': session.end(`music session ended by ${member}`);
+        case 'end': {
+          if(!member.roles.resolve(tguild.button_restrictions.end)) { no_press(); return; }
+          session.end(`music session ended by ${member}`);
+        } break;
       }
     }
   } catch(err) { handle_error(err); }

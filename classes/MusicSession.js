@@ -16,7 +16,7 @@ import '../prototype.js';
  * Typing for VSCode
  * @typedef {import('@discordjs/voice').VoiceConnection} VoiceConnection
  * @typedef {import('@discordjs/voice').AudioPlayer} AudioPlayer
- * @typedef {import('discord.js').VoiceChannel} VoiceChannel
+ * @typedef {import('discord.js').ThreadChannel} ThreadChannel
  * @typedef {import('discord.js').ButtonInteraction} ButtonInteraction
  * @typedef {import('discord.js').GuildMember} GuildMember
  * @typedef {import('discord.js').APIEmbed} APIEmbed
@@ -99,7 +99,7 @@ export default class MusicSession {
   // required from constructor, immediately available
   /** @type {AudioPlayer} */ #audio_player;
   /** @type {VoiceConnection} */ #voice_connection;
-  /** @type {VoiceChannel} */ #channel;
+  /** @type {ThreadChannel} */ #thread;
   /** @type {Message} */ #start_msg;
   /** @type {TGuild} */ #tguild;
   /** @type {(id: string) => any} */ #delete_session;
@@ -107,24 +107,18 @@ export default class MusicSession {
 
   /**
    * @param {VoiceConnection} vc
-   * @param {VoiceChannel} channel
+   * @param {ThreadChannel} thread
    * @param {Message} start_msg
    * @param {TGuild} tguild
    * @param {(id: string) => any} delete_session
    * @param {(err: Error) => any} handle_error
    */
-  constructor(vc, channel, start_msg, tguild, delete_session, handle_error) {
-    this.#channel = channel;
+  constructor(vc, thread, start_msg, tguild, delete_session, handle_error) {
+    this.#thread = thread;
     this.#start_msg = start_msg;
     this.#tguild = tguild;
     this.#delete_session = delete_session;
     this.#handle_error = handle_error;
-
-    // lock down channel so only i can send messages
-    const everyone = this.#channel.guild.roles.everyone;
-    if(this.#channel.permissionsFor(everyone).has('SendMessages')) {
-      this.#channel.permissionOverwrites.create(everyone, { SendMessages: false });
-    }
 
     this.#voice_connection = vc.on('stateChange', async (_, { status }) => {
       this.#button_lock = true;
@@ -161,8 +155,8 @@ export default class MusicSession {
             ++this.#loop_count;
 
             const embed = EmbedBuilder.from(this.#music_player.embeds[0]);
-            embed.setFooter(this.#mp_playing_embed_footer);
-            this.#music_player.edit({ embeds: [embed] }).catch(this.#handle_error);
+            embed.data.footer = this.#mp_playing_embed_footer;
+            this.#music_player.edit({ embeds: [embed.data] }).catch(this.#handle_error);
           }
           
           else {
@@ -204,17 +198,17 @@ export default class MusicSession {
 
     // create and store messages
     (async () => {
-      this.#log_msg = await this.#channel.send({
+      this.#log_msg = await this.#thread.send({
         embeds: [this.#log_embed],
         components: [action_rows.session_log]
       }).catch(this.#handle_error);
 
-      this.#queue_msg = await this.#channel.send({
+      this.#queue_msg = await this.#thread.send({
         embeds: [this.#queue_embed],
         components: [this.#queue_row]
       }).catch(this.#handle_error);
 
-      this.#music_player = await this.#channel.send({
+      this.#music_player = await this.#thread.send({
         embeds: [this.#mp_idle_embed],
         components: [action_rows.disabled_mp]
       }).catch(this.#handle_error);
@@ -227,8 +221,8 @@ export default class MusicSession {
     return this.#button_lock;
   }
 
-  get channel() {
-    return this.#channel;
+  get thread() {
+    return this.#thread;
   }
 
   get #mp_row() {
@@ -290,7 +284,7 @@ export default class MusicSession {
   /** @type {APIEmbed} */
   get #mp_idle_embed() {
     return {
-      author: { name: 'Idle', iconURL: this.#channel.guild.iconURL() },
+      author: { name: 'Idle', iconURL: this.#thread.guild.iconURL() },
       title: 'Music player',
       description: 'no tracks are playing!\nadd songs to the queue to start playing music.'
     };
@@ -303,7 +297,7 @@ export default class MusicSession {
 
     return {
       color: resolveColor(this.#tguild.embed_color),
-      author: { name: 'Playing', iconURL: this.#channel.guild.iconURL() },
+      author: { name: 'Playing', iconURL: this.#thread.guild.iconURL() },
       title: 'Music player',
       fields: [
         { name: 'Song & artist', value: `**${hyperlink}**\n${artist}`, inline: true },
@@ -320,8 +314,6 @@ export default class MusicSession {
     const { requestor } = this.#audio_player.state.resource.metadata;
     let text = `Requested by ${requestor.displayName}`;
     if(this.#loop) text += ` | Loop Count: ${this.#loop_count}`;
-    console.log(requestor);
-    console.log(requestor.displayAvatarURL());
     return { text, icon_url: requestor.displayAvatarURL() };
   }
 
@@ -383,8 +375,8 @@ export default class MusicSession {
     this.#audio_player.pause();
 
     const embed = EmbedBuilder.from(message.embeds[0]);
-    embed.setAuthor({ name: 'Paused' });
-    embed.setColor(null);
+    embed.data.author.name = 'Paused';
+    embed.data.color = null;
 
     interaction.update({ embeds: [embed.data], components: [this.#mp_row] }).catch(this.#handle_error);
     this.#log(`${member} paused playback`);
@@ -399,10 +391,10 @@ export default class MusicSession {
     this.#audio_player.unpause();
 
     const embed = EmbedBuilder.from(message.embeds[0]);
-    embed.setAuthor({ name: 'Playing' });
-    embed.setColor(this.#tguild.embed_color);
+    embed.data.author.name = 'Playing';
+    embed.data.color = resolveColor(this.#tguild.embed_color);
 
-    interaction.update({ embeds: [embed.data], components: [this.#mp_row] }).catch(this.#handle_error);
+    interaction.update({ embeds: [embed], components: [this.#mp_row] }).catch(this.#handle_error);
     this.#log(`${member} resumed playback`);
   }
 
@@ -452,8 +444,7 @@ export default class MusicSession {
     }
 
     const embed = EmbedBuilder.from(message.embeds[0]);
-    embed.setFooter(this.#mp_playing_embed_footer);
-
+    embed.data.footer = this.#mp_playing_embed_footer;
     interaction.update({ embeds: [embed.data], components: [this.#mp_row] }).catch(this.#handle_error);
 
     this.#log(`${member} ${str}`);
@@ -477,21 +468,15 @@ export default class MusicSession {
     // leave the voice channel
     this.#voice_connection.destroy();
 
-    // delete the messages
-    this.#music_player.delete().catch(this.#handle_error);
-    this.#log_msg.delete().catch(this.#handle_error);
-    this.#queue_msg.delete().catch(this.#handle_error);
-
     // edit the original interaction reply with the end reason
     this.#start_msg.edit(reason).catch(this.#handle_error);
 
-    // unlock the channel
-    const everyone = this.#channel.guild.roles.everyone;
-    this.#channel.permissionOverwrites.create(everyone, { SendMessages: null }).catch(this.#handle_error);
+    // delete the thread
+    this.#thread.delete().catch(this.#handle_error);
 
     // delete our reference from the sessions map
     // so we can get garbage collected
-    this.#delete_session(this.#channel.guildId);
+    this.#delete_session(this.#thread.guildId);
   }
 
   /**
