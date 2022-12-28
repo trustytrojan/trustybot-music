@@ -1,4 +1,4 @@
-import trustybot from './trustybot.js';
+import trustybot from 'trustybot-base';
 import TGuild from './classes/TGuild.js';
 import MusicSession from './classes/MusicSession.js';
 import Track from './classes/Track.js';
@@ -7,29 +7,19 @@ import {
   Collection,
   EmbedBuilder,
   ActivityType,
-  TextInputStyle,
   VoiceChannel,
   resolveColor
 } from 'discord.js';
 const { Playing } = ActivityType;
-const { Short } = TextInputStyle;
 
-import {
-  joinVoiceChannel
-} from '@discordjs/voice';
+import { joinVoiceChannel } from '@discordjs/voice';
 
 import play from 'play-dl';
 const { YouTubePlayList, SoundCloudPlaylist, YouTubeVideo, SoundCloudTrack } = play;
 play.setToken({ soundcloud: await play.getFreeClientID() });
 
-import {
-  modal_row,
-  modal_sender,
-  format_error,
-  do_nothing,
-  extract_text
-} from './utils.js';
-import { btn_readable_name, btn_rest_field_str } from './music-utils.js';
+const { Modal, do_nothing, format_error, import_json } = trustybot.utils;
+import { btn_readable_name, btn_rest_field_str } from './utils.js';
 
 /**
  * Typing for VSCode
@@ -49,8 +39,7 @@ const client = new trustybot(
     ]
   },
   {
-    on_kill: () => TGuild.writeToFile(tguilds),
-    guild_commands: (await import('./command-data.js')).guild_commands
+    guild: (await import('./command-data.js')).guild_commands
   }
 );
 
@@ -59,8 +48,8 @@ client.on('ready', () => {
 });
 
 client.on('interactionCreate', async (interaction) => {
-  function _handleError(err) {
-    client.handleError(err);
+  function handle_error(err) {
+    client.handle_error(err);
     interaction.reply(format_error(err)).catch(do_nothing);
     interaction.followUp(format_error(err)).catch(do_nothing);
   }
@@ -68,7 +57,7 @@ client.on('interactionCreate', async (interaction) => {
   if(!interaction.inCachedGuild()) return;
   if(!interaction.isRepliable()) return;
 
-  const { guild, guildId, member, channel, channelId } = interaction;
+  const { guild, guildId, member } = interaction;
 
   const { me } = guild.members;
   if(!me) { interaction.replyEphemeral('where am i???'); return; }
@@ -80,6 +69,8 @@ client.on('interactionCreate', async (interaction) => {
       const { commandName, options } = interaction;
       switch(commandName) {
         case 'start_session': {
+          const channel = options.getChannel('channel', true);
+
           // channel type check
           if(!(channel instanceof VoiceChannel)) {
             interaction.replyEphemeral('this only works in voice channels!');
@@ -104,14 +95,18 @@ client.on('interactionCreate', async (interaction) => {
           }
   
           // join channel
-          const vc = joinVoiceChannel({ channelId, guildId, adapterCreator: guild.voiceAdapterCreator });
+          const vc = joinVoiceChannel({
+            channelId: channel.id,
+            guildId,
+            adapterCreator: guild.voiceAdapterCreator
+          });
 
           // all done
           const message = await interaction.reply({
             content: `session created by ${member}! use the controls below!`,
             fetchReply: true
           });
-          sessions.set(guildId, new MusicSession(vc, channel, message, tguild, delete_music_session, _handleError));
+          sessions.set(guildId, new MusicSession(vc, channel, message, tguild, delete_music_session, handle_error));
           update_status();
         } break;
 
@@ -205,15 +200,15 @@ client.on('interactionCreate', async (interaction) => {
       switch(customId) {
         case 'enqueue': {
           // get query from user
-          const modal_int = await modal_sender(interaction, 'Add songs to the queue', 120_000, [
-            modal_row('youtube', 'youtube: search/video/playlist', Short, { required: false, placeholder: 'search or paste a link' }),
-            modal_row('soundcloud', 'soundcloud: search/track/playlist', Short, { required: false, placeholder: 'search or paste a link' })
+          const [modal_int, text] = await Modal.send_and_receive(interaction, 'Add songs to the queue', 120_000, [
+            Modal.row.short('youtube', 'youtube: search/video/playlist', { r: false, p: 'search or paste a link' }),
+            Modal.row.short('soundcloud', 'soundcloud: search/track/playlist', { r: false, p: 'search or paste a link' })
           ]);
           if(!modal_int) {
             interaction.followUp(`${member} you took too long to submit`);
             return;
           }
-          const [youtube, soundcloud] = extract_text(modal_int);
+          const [youtube, soundcloud] = text;
 
           // search for or fetch track details
           let playlist, track;
@@ -257,14 +252,14 @@ client.on('interactionCreate', async (interaction) => {
         case 'loop': session.toggle_loop(interaction); break;
         case 'shuffle': session.shuffle(interaction); break;
         case 'skip_to': {
-          const modal_int = await modal_sender(interaction, 'Skip to track number...', 30_000, [
-            modal_row('skip_to', 'track number', Short, { required: true })
+          const [modal_int, text] = await Modal.send_and_receive(interaction, 'Skip to track number...', 30_000, [
+            Modal.row.short('skip_to', 'track number', { r: true })
           ]);
           if(!modal_int) {
             interaction.followUp(`${member} you took too long to submit`);
             return;
           }
-          let [track_num] = extract_text(modal_int);
+          let [track_num] = text;
           track_num = Number.parseInt(track_num);
           session.skip_to(track_num-1, member);
           modal_int.replyEphemeral('success!');
@@ -272,7 +267,7 @@ client.on('interactionCreate', async (interaction) => {
         case 'end': session.end(`music session ended by ${member}`);
       }
     }
-  } catch(err) { _handleError(err); }
+  } catch(err) { handle_error(err); }
 });
 
 /**
@@ -285,7 +280,7 @@ function delete_music_session(id) {
 }
 
 function update_status() {
-  client.setStatus(Playing, `music in ${sessions.size} ${(sessions.size == 1) ? 'server' : 'servers'}`);
+  client.set_status(Playing, `music in ${sessions.size} ${(sessions.size == 1) ? 'server' : 'servers'}`);
 }
 
-client.login();
+client.login(await import_json('token.json'));

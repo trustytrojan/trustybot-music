@@ -1,11 +1,7 @@
-import {
-  createAudioResource,
-} from '@discordjs/voice';
-
+import { createAudioResource } from '@discordjs/voice';
 import play from 'play-dl';
 const { YouTubeVideo, SoundCloudTrack } = play;
-
-import { hours_minutes_seconds } from '../music-utils.js';
+import { hours_minutes_seconds } from '../utils.js';
 
 /**
  * Typing for VSCode

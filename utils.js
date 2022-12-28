@@ -1,95 +1,53 @@
-import { randomUUID } from 'crypto';
-import './prototype.js';
-
-import {
-  ComponentType,
-} from 'discord.js';
-
-const { ActionRow, TextInput, Button } = ComponentType;
-
-export const do_nothing = () => {};
-
 /**
  * Typing for VSCode
- * @typedef {import('discord.js').ButtonStyle} ButtonStyle
- * @typedef {import('discord.js').TextInputStyle} TextInputStyle
- * @typedef {import('discord.js').CommandInteraction} CommandInteraction
- * @typedef {import('discord.js').ModalSubmitInteraction} ModalSubmitInteraction
- * @typedef {import('discord.js').APIActionRowComponent<import('discord.js').APIButtonComponent>} ButtonRow
- * @typedef {import('discord.js').APIActionRowComponent<import('discord.js').APIModalActionRowComponent>} ModalRow
- * @typedef {import('discord.js').APIButtonComponent} Button
- * @typedef {import('discord.js').APIButtonComponentWithCustomId} CustomIdButton
- * @typedef {import('discord.js').APIButtonComponentWithURL} LinkButton
+ * @typedef {import('discord.js').Guild} Guild
+ * @typedef {import('./TGuild.js').ButtonRestrictions} ButtonRestrictions
  */
 
 /**
- * @param {Button[]} buttons
+ * @param {number} s 
+ * @param {boolean=} milliseconds Whether the time value provided is a quantity of milliseconds, not seconds
  */
-export function button_row(...buttons) {
-  /** @type {ButtonRow} */
-  const row = { type: ActionRow, components: [] };
-  for(const button of buttons) {
-    row.components.push(button);
+export function hours_minutes_seconds(s, milliseconds) {
+  if(milliseconds) s = Math.floor(s / 1000);
+
+  const hours = Math.floor(s / 3600);
+  const minutes = Math.floor(s / 60);
+
+  let m_rem = minutes % 60;
+  if(m_rem < 10) m_rem = `0${m_rem}`;
+  
+  let s_rem = s%60;
+  if(s_rem < 10) s_rem = `0${s_rem}`
+
+  if(hours > 0) return `${hours}:${m_rem}:${s_rem}`;
+  return `${minutes}:${s_rem}`;
+}
+
+/**
+ * @param {Guild} guild 
+ * @param {ButtonRestrictions} btn_rest 
+ */
+export function btn_rest_field_str(guild, btn_rest) {
+  const everyone = guild.roles.everyone.toString();
+
+  /** @param {keyof ButtonRestrictions} x */
+  const r_str = (x) => `${btn_rest[x] ? `<@&${btn_rest[x]}>` : everyone}\n`;
+
+  let str = '';
+  for(const k in btn_rest) {
+    str += r_str(k);
   }
-  return row;
+  
+  return str;
 }
 
-/**
- * @param {string} custom_id
- * @param {string} label
- * @param {ButtonStyle} style
- * @param {{ emoji: string, disabled: boolean }}
- * @returns {CustomIdButton}
- */
-export const button = (custom_id, label, style, { emoji, disabled } = {}) =>
-  ({ type: Button, custom_id, label, style, emoji, disabled });
-
-/**
- * @param {string} url
- * @param {string} label
- * @param {ButtonStyle} style
- * @param {string} emoji
- * @returns {LinkButton}
- */
-export const link_button = (url, label, style, emoji) =>
-  ({ type: Button, url, label, style, emoji });
-
-/**
- * @param {Error} err 
- */
-export const format_error = (err) => `**this is an error**\`\`\`js\n${err.stack ?? err}\`\`\``;
-
-/**
- * @param {string} custom_id 
- * @param {string} label 
- * @param {TextInputStyle} style 
- * @param {{ placeholder: string, required: boolean }} 
- * @returns {ModalRow}
- */
-export const modal_row = (custom_id, label, style, { placeholder, required } = {}) =>
-  ({ type: ActionRow, components: [{ type: TextInput, custom_id, label, style, placeholder, required }] });
-
-/**
- * @param {CommandInteraction} interaction 
- * @param {string} title 
- * @param {number} time 
- * @param {ModalRow[]} rows 
- */
-export async function modal_sender(interaction, title, time, rows) {
-  const customId = randomUUID();
-  interaction.showModal({ customId, title, components: rows });
-  let modal_int;
-  try { modal_int = await interaction.awaitModalSubmit({ filter: (m) => m.customId === customId, time }); }
-  catch(err) { return; }
-  return modal_int;
-}
-
-/** 
- * @param {ModalSubmitInteraction} modal_int
- */
-export const extract_text = (modal_int) => modal_int.fields.fields.map((v) => v.value);
-
-/**
- * @param {string} file 
- */
-export const import_json = async (file) => (await import(file, { assert: { type: 'json' } })).default;
+export const btn_readable_name = Object.freeze({
+  pause_resume: 'pause / resume',
+  skip: 'skip',
+  loop: 'loop',
+  enqueue: 'add to queue',
+  shuffle: 'shuffle',
+  skip_to: 'skip to...',
+  end: 'end session'
+});

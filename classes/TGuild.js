@@ -1,8 +1,9 @@
 import { Collection } from 'discord.js';
-import { import_json } from '../utils.js';
 import { writeFileSync } from 'fs';
+import trustybot from 'trustybot-base';
+const { import_json } = trustybot.utils;
 
-const file = './tguilds.json';
+const file = 'tguilds.json';
 
 /**
  * An object representing which roles are allowed to press the 
@@ -33,7 +34,7 @@ export default class TGuild {
       for(const tg of (await import_json(file))) {
         tguilds.set(tg.guild, new TGuild(tg));
       }
-    } catch(err) { void err; }
+    } catch(err) { console.error(err); }
       
     return tguilds;
   }

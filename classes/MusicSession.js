@@ -1,25 +1,13 @@
 import { randomInt } from 'crypto';
 
-import {
-  ButtonStyle,
-  resolveColor,
-  EmbedBuilder,
-} from 'discord.js';
-const { Primary, Secondary, Danger, Success } = ButtonStyle;
+import { resolveColor, EmbedBuilder } from 'discord.js';
 
-import {
-  createAudioPlayer,
-  VoiceConnectionStatus,
-  AudioPlayerStatus,
-  entersState
-} from '@discordjs/voice';
+import { createAudioPlayer, VoiceConnectionStatus, AudioPlayerStatus, entersState } from '@discordjs/voice';
 const { Paused, Playing, Idle } = AudioPlayerStatus;
-const { Disconnected, Connecting, Signalling, Destroyed, Ready } = VoiceConnectionStatus;
+const { Disconnected, Connecting, Signalling, Ready } = VoiceConnectionStatus;
 
-import {
-  button,
-  button_row
-} from '../utils.js';
+import trustybot from 'trustybot-base';
+const { button, action_row } = trustybot.utils.APIObjectCreator.component;
 
 import Track from './Track.js';
 import '../prototype.js';
@@ -40,50 +28,54 @@ import '../prototype.js';
 
 const buttons = Object.freeze({
   pause:
-    Object.freeze(button('pause', 'pause', Primary, { emoji: '⏸️' })),
+    button.primary('pause', 'pause', { e: '⏸️' }),
   pause_disabled:
-    Object.freeze(button('pause', 'pause', Primary, { emoji: '⏸️', disabled: true })),
+    button.primary('pause', 'pause', { e: '⏸️', d: true }),
   unpause:
-    Object.freeze(button('unpause', 'resume', Primary, { emoji: '▶️' })),
+    button.primary('unpause', 'resume', { e: '▶️' }),
   unpause_disabled:
-    Object.freeze(button('unpause', 'resume', Primary, { emoji: '▶️', disabled: true })),
+    button.primary('unpause', 'resume', { e: '▶️', d: true }),
   skip:
-    Object.freeze(button('skip', 'skip', Secondary, { emoji: '⏭️' })),
+    button.secondary('skip', 'skip', { e: '⏭️' }),
   skip_disabled:
-    Object.freeze(button('skip', 'skip', Secondary, { emoji: '⏭️', disabled: true })),
+    button.secondary('skip', 'skip', { e: '⏭️', d: true }),
   loop_off:
-    Object.freeze(button('loop', 'loop', Secondary, { emoji: '🔂' })),
+    button.secondary('loop', 'loop', { e: '🔂' }),
   loop_off_disabled:
-    Object.freeze(button('loop', 'loop', Secondary, { emoji: '🔂', disabled: true })),
+    button.secondary('loop', 'loop', { e: '🔂', d: true }),
   loop_on:
-    Object.freeze(button('loop', 'loop', Success, { emoji: '🔂' })),
+    button.success('loop', 'loop', { e: '🔂' }),
   enqueue:
-    Object.freeze(button('enqueue', 'add to queue', Success, { emoji: '➕' })),
+    button.success('enqueue', 'add to queue', { e: '➕' }),
   shuffle:
-    Object.freeze(button('shuffle', 'shuffle', Primary, { emoji: '🔀' })),
+    button.primary('shuffle', 'shuffle', { e: '🔀' }),
   shuffle_disabled:
-    Object.freeze(button('shuffle', 'shuffle', Primary, { emoji: '🔀', disabled: true })),
+    button.primary('shuffle', 'shuffle', { e: '🔀', d: true }),
   skip_to:
-    Object.freeze(button('skip_to', 'skip to...', Secondary, { emoji: '⏭️' })),
+    button.secondary('skip_to', 'skip to...', { e: '⏭️' }),
   skip_to_disabled:
-    Object.freeze(button('skip_to', 'skip to...', Secondary, { emoji: '⏭️', disabled: true })),
+    button.secondary('skip_to', 'skip to...', { e: '⏭️', d: true }),
   end:
-    Object.freeze(button('end', 'end session', Danger))
+    button.danger('end', 'end session')
 });
 
 const action_rows = Object.freeze({
   disabled_mp:
-    Object.freeze(button_row(buttons.pause_disabled, buttons.skip_disabled, buttons.loop_off_disabled)),
+    action_row(buttons.pause_disabled, buttons.skip_disabled, buttons.loop_off_disabled),
   mp_playing_loop_on:
-    Object.freeze(button_row(buttons.pause, buttons.skip, buttons.loop_on)),
+    action_row(buttons.pause, buttons.skip, buttons.loop_on),
   mp_playing_loop_off:
-    Object.freeze(button_row(buttons.pause, buttons.skip, buttons.loop_off)),
+    action_row(buttons.pause, buttons.skip, buttons.loop_off),
   mp_paused_loop_on:
-    Object.freeze(button_row(buttons.unpause, buttons.skip, buttons.loop_on)),
+    action_row(buttons.unpause, buttons.skip, buttons.loop_on),
   mp_paused_loop_off:
-    Object.freeze(button_row(buttons.unpause, buttons.skip, buttons.loop_off)),
+    action_row(buttons.unpause, buttons.skip, buttons.loop_off),
+  queue_1_or_less:
+    action_row(buttons.enqueue, buttons.shuffle_disabled, buttons.skip_to_disabled),
+  queue_2_or_more:
+    action_row(buttons.enqueue, buttons.shuffle, buttons.skip_to),
   session_log:
-    Object.freeze(button_row(buttons.end))
+    action_row(buttons.end)
 });
 
 export default class MusicSession {
@@ -247,10 +239,9 @@ export default class MusicSession {
   }
 
   get #queue_row() {
-    const { enqueue, shuffle, shuffle_disabled, skip_to, skip_to_disabled } = buttons;
     if(this.#queue.length <= 1)
-      return button_row(enqueue, shuffle_disabled, skip_to_disabled);
-    return button_row(enqueue, shuffle, skip_to);
+      return action_rows.queue_1_or_less;
+    return action_rows.queue_2_or_more;
   }
 
   /** @type {APIEmbed} */
@@ -470,11 +461,9 @@ export default class MusicSession {
    * @param {ButtonInteraction} interaction 
    */
   shuffle(interaction) {
-    console.log(this.#queue);
     for(let i = this.#queue.length-1; i > 0; --i) {
       this.#queue.swap(i, randomInt(i+1));
     }
-    console.log(this.#queue);
     interaction.update({ embeds: [this.#queue_embed] }).catch(this.#handle_error);
     this.#log(`${interaction.member} shuffled the queue`);
   }

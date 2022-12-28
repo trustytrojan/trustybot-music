@@ -1,8 +1,8 @@
-import {
-  ApplicationCommandOptionType,
-} from 'discord.js';
+import trustybot from 'trustybot-base';
+const { chat_input, option } = trustybot.utils.APIObjectCreator.command;
 
-const { String, Role } = ApplicationCommandOptionType;
+import { ChannelType } from 'discord.js';
+const { GuildVoice, GuildStageVoice } = ChannelType;
 
 /**
  * Typing for VSCode
@@ -13,17 +13,19 @@ const restriction_desc = 'if selected, only members with this role can press thi
 
 /** @type {Command[]} */
 export const guild_commands = [
-  { name: 'start_session', description: 'start a music session' },
-  { name: 'button_restrictions', description: 'restrict usage of buttons to members with specified roles', options: [
-    { name: 'pause_or_resume', type: Role, description: restriction_desc },
-    { name: 'skip', type: Role, description: restriction_desc },
-    { name: 'loop', type: Role, description: restriction_desc },
-    { name: 'add_to_queue', type: Role, description: restriction_desc },
-    { name: 'shuffle', type: Role, description: restriction_desc },
-    { name: 'skip_to', type: Role, description: restriction_desc },
-    { name: 'end_session', type: Role, description: restriction_desc },
-  ] },
-  { name: 'server_settings', description: 'change server settings', options: [
-    { name: 'embed_color', type: String, description: 'set the default color of my embeds (hex color code)' }
-  ] }
+  chat_input('start_session', 'start a music session in a voice channel', [
+    option.channel('channel', 'choose a voice channel for me to join', [GuildVoice, GuildStageVoice], true)
+  ]),
+  chat_input('button_restrictions', 'restrict usage of buttons to members with specified roles', [
+    option.role('pause_or_resume', restriction_desc),
+    option.role('skip', restriction_desc),
+    option.role('loop', restriction_desc),
+    option.role('add_to_queue', restriction_desc),
+    option.role('shuffle', restriction_desc),
+    option.role('skip_to', restriction_desc),
+    option.role('end_session', restriction_desc)
+  ]),
+  chat_input('server_settings', 'change server settings', [
+    option.string('embed_color', 'set the default color of my embeds (hex color code)')
+  ])
 ];
